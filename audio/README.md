@@ -93,6 +93,9 @@ python
 
 * run by python script
 ```bash
+# check your audio device by audio/list_audio_devices.py
+# modify the AUDIO_DEVICE_NAME in audio/audio_trans.py
+
 # execute this under obs-camera-translator/
 python -m audio.audio_trans --stt_host localhost --stt_port 9090 --lang ja --file audio/demon_slayer_infinity_castle_trailer.mp3
 ```

@@ -1,3 +1,4 @@
+import pyaudio
 import argparse
 import json
 import time
@@ -7,6 +8,8 @@ from audio.my_whisperlive_client import MyTranscriptionClient
 from logger import build_logger
 from cachetools import FIFOCache
 from threading import Thread
+
+AUDIO_DEVICE_NAME = "AVerMedia ExtremeCap UA"
 
 TRANSCRIPTION_TEXT_FILENAME = "audio/translated_audio_text.txt"
 MAX_ON_TRANSCRIPTION_CACHE_LEN = 20
@@ -22,9 +25,20 @@ translated_cache = FIFOCache(maxsize=MAX_TRANSLATED_CACHE_LEN)
 logger = build_logger("audio", "audio.log")
 
 
-# TODO: detect audio device automatically
 def detect_audio_device():
-    return 0
+    p = pyaudio.PyAudio()
+
+    for index in range(p.get_device_count()):
+        dev = p.get_device_info_by_index(index)
+
+        if dev["maxInputChannels"] > 0:
+            print(f"device [{index}] {dev['name']}")
+
+            if AUDIO_DEVICE_NAME in dev["name"]:
+                print(f"[detect_audio_device] choose device index {index}")
+                return index
+
+    raise Exception(f"Failed to find audio device with name '{AUDIO_DEVICE_NAME}'")
 
 
 def on_transcription(texts: str, transcriptions: list):
