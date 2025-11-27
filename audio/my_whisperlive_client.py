@@ -4,8 +4,6 @@ from whisper_live.client import TranscriptionClient, TranscriptionTeeClient, Cli
 
 TRANSCRIPTION_TEXT_FILENAME = "clean_transcription.txt"
 
-my_pyaudio_input_device = 0
-
 
 def my_transcription_callback(texts: str, transcriptions: list):
     is_first_line = True
@@ -46,6 +44,7 @@ class MyTranscriptionTeeClient(TranscriptionTeeClient):
         save_output_recording=False,
         output_recording_filename="./output_recording.wav",
         mute_audio_playback=False,
+        audio_input_device=0,
     ):
         self.clients = clients
         if not self.clients:
@@ -67,7 +66,7 @@ class MyTranscriptionTeeClient(TranscriptionTeeClient):
                 rate=self.rate,
                 input=True,
                 frames_per_buffer=self.chunk,
-                input_device_index=my_pyaudio_input_device,
+                input_device_index=audio_input_device,
             )
         except OSError as error:
             print(f"[WARN]: Unable to access microphone. {error}")
@@ -100,10 +99,6 @@ class MyTranscriptionClient(TranscriptionClient):
         clip_audio (bool, optional): Whether to clip audio with no valid segments. Defaults to False.
         same_output_threshold (int, optional): Number of repeated outputs before considering it as a valid segment. Defaults to 10.
         transcription_callback (callable, optional): A callback function to handle transcription results. Default is None.
-        enable_translation (float, optional): Whether to enable translation from any to any language. Defaults to False.
-        target_language (str, optional): Target language for translation. Defaults to 'fr'.
-        translation_callback (callable, optional): A callback function to handle translation results. Default is None.
-        translation_srt_file_path (str, optional): The file path to save the translated output SRT file. Default is "output_translated.srt".
 
     Attributes:
         client (Client): An instance of the underlying Client class responsible for handling the WebSocket connection.
@@ -135,10 +130,7 @@ class MyTranscriptionClient(TranscriptionClient):
         clip_audio=False,
         same_output_threshold=10,
         transcription_callback=my_transcription_callback,
-        enable_translation=False,
-        target_language="fr",
-        translation_callback=None,
-        translation_srt_file_path="./output_translated.srt",
+        audio_input_device=0,
     ):
         self.client = Client(
             host,
@@ -155,10 +147,6 @@ class MyTranscriptionClient(TranscriptionClient):
             clip_audio=clip_audio,
             same_output_threshold=same_output_threshold,
             transcription_callback=transcription_callback,
-            enable_translation=enable_translation,
-            target_language=target_language,
-            translation_callback=translation_callback,
-            translation_srt_file_path=translation_srt_file_path,
         )
 
         if save_output_recording and not output_recording_filename.endswith(".wav"):
@@ -169,14 +157,11 @@ class MyTranscriptionClient(TranscriptionClient):
             raise ValueError(
                 f"Please provide a valid `output_transcription_path`: {output_transcription_path}. The file extension should be `.srt`."
             )
-        if not translation_srt_file_path.endswith(".srt"):
-            raise ValueError(
-                f"Please provide a valid `translation_srt_file_path`: {translation_srt_file_path}. The file extension should be `.srt`."
-            )
         MyTranscriptionTeeClient.__init__(
             self,
             [self.client],
             save_output_recording=save_output_recording,
             output_recording_filename=output_recording_filename,
             mute_audio_playback=mute_audio_playback,
+            audio_input_device=audio_input_device,
         )

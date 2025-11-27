@@ -1,0 +1,171 @@
+import argparse
+import json
+import time
+import traceback
+
+from audio.my_whisperlive_client import MyTranscriptionClient
+from logger import build_logger
+from cachetools import FIFOCache
+from threading import Thread
+
+TRANSCRIPTION_TEXT_FILENAME = "audio/translated_audio_text.txt"
+MAX_ON_TRANSCRIPTION_CACHE_LEN = 20
+MAX_TRANSLATED_CACHE_LEN = 60
+MAX_OUTPUT_LEN = 10
+
+# key: start time in string, value: transcript dict
+orig_transcription_cache = FIFOCache(maxsize=MAX_ON_TRANSCRIPTION_CACHE_LEN)
+
+# key: start time in string, value: translated dict
+translated_cache = FIFOCache(maxsize=MAX_TRANSLATED_CACHE_LEN)
+
+logger = build_logger("audio", "audio.log")
+
+
+# TODO: detect audio device automatically
+def detect_audio_device():
+    return 0
+
+
+def on_transcription(texts: str, transcriptions: list):
+    """
+    example data of transcriptions
+    [
+        {
+            "start": "2.158",
+            "end": "3.072",
+            "text": " Coming through",
+            "completed": false
+        },
+        ...
+    ]
+    """
+    global orig_transcription_cache
+
+    for orig in transcriptions:
+        logger.info(f"[on_transcription] {orig=}")
+        start_time = orig["start"]
+
+        if start_time in orig_transcription_cache:
+            old_trans = orig_transcription_cache[start_time]
+
+            if old_trans["completed"]:
+                continue
+
+        orig_transcription_cache[start_time] = orig
+
+
+def transcription_worker():
+    global orig_transcription_cache
+
+    while True:
+        try:
+            if len(orig_transcription_cache) == 0:
+                time.sleep(0.5)
+                continue
+
+            is_updated = False
+
+            for start_time, orig in orig_transcription_cache.items():
+                text = orig["text"]
+                completed = orig["completed"]
+
+                translated_data = translated_cache.get(start_time, None)
+                already_translated = translated_data and (
+                    "translated_text" in translated_data
+                )
+
+                if already_translated:
+                    copied_data = translated_data
+                else:
+                    copied_data = orig.copy()
+
+                if completed and not already_translated:
+                    copied_data["translated_text"] = (
+                        f"Melody simulate translate: {text}"  # TODO: translate text
+                    )
+                    is_updated = True
+
+                if start_time not in translated_cache:
+                    is_updated = True
+                elif text != translated_cache[start_time]["text"]:
+                    is_updated = True
+
+                translated_cache[start_time] = copied_data
+
+            if not is_updated:
+                time.sleep(0.1)
+                continue
+
+            output_transcription(translated_cache)
+
+        except Exception as e:
+            logger.error(f"[transcription_worker] {e}")
+            logger.error(
+                f"[transcription_worker] exception traceback: {traceback.format_exc()}"
+            )
+            time.sleep(0.1)
+
+
+def output_transcription(cache: FIFOCache, filename=TRANSCRIPTION_TEXT_FILENAME):
+    is_first_line = True
+
+    print(f"----------------------------------------")
+
+    with open(filename, "w", encoding="utf-8") as f:
+        if len(cache) > MAX_OUTPUT_LEN:
+            last_start_times = list(cache.keys())[-MAX_OUTPUT_LEN:]
+        else:
+            last_start_times = list(cache.keys())
+
+        for start_time in last_start_times:
+            data = cache.get(start_time)
+
+            if not is_first_line:
+                f.write("\n\n")
+
+            text = data["text"].strip()
+            translated_text = data.get("translated_text", None)
+
+            f.write(text)
+            print(text)
+
+            if translated_text:
+                f.write("\n" + translated_text)
+                print(translated_text)
+
+            is_first_line = False
+
+    print("========================================\n")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stt_host", type=str, default="localhost")
+    parser.add_argument("--stt_port", type=int, default=9090)
+    parser.add_argument("--lang", type=str, default="ja")
+    parser.add_argument("--file", type=str, default=None)
+    parser.add_argument(
+        "--output_transcription_path", type=str, default="audio/output.srt"
+    )
+
+    args = parser.parse_args()
+    logger.info(f"{args=}")
+
+    Thread(target=transcription_worker, daemon=True).start()
+
+    audio_input_device = detect_audio_device()
+
+    client = MyTranscriptionClient(
+        host=args.stt_host,
+        port=args.stt_port,
+        lang=args.lang,
+        transcription_callback=on_transcription,
+        audio_input_device=audio_input_device,
+        output_transcription_path=args.output_transcription_path,
+    )
+
+    if args.file:
+        client(args.file)
+    else:
+        client()

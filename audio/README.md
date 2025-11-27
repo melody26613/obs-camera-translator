@@ -4,9 +4,15 @@
 
 0. download model
 ```bash
+python -m venv venv
+source venv/bin/activate
+pip install --upgrade huggingface_hub
+
 hf download Systran/faster-whisper-medium --local-dir Systran/faster-whisper-medium/
 
 hf download Systran/faster-whisper-small --local-dir Systran/faster-whisper-small/
+
+deactivate
 ```
 
 1. run server by docker
@@ -67,17 +73,12 @@ root@a5f516fcfff8:/app# python run_server.py --faster_whisper_custom_model_path 
 2. run client
 * preparation
 ```bash
-git clone https://github.com/collabora/WhisperLive.git
-cd WhisperLive
-
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements/client.txt
-
-# copy my_whisperlive_client.py under WhisperLive
+pip install -r requirements.txt
 ```
 
-* run by python
+* run by python cli
 ```python
 python
 >>> from whisper_live.client import TranscriptionClient
@@ -88,6 +89,12 @@ python
 >>> from my_whisperlive_client import MyTranscriptionClient
 >>> client = MyTranscriptionClient(host="localhost", port=9090, lang="ja")
 >>> client("demon_slayer_infinity_castle_trailer.mp3")
+```
+
+* run by python script
+```bash
+# execute this under obs-camera-translator/
+python -m audio.audio_trans --stt_host localhost --stt_port 9090 --lang ja --file audio/demon_slayer_infinity_castle_trailer.mp3
 ```
 
 ## References

@@ -1,0 +1,6 @@
+PyAudio
+av
+scipy
+websocket-client
+whisper-live
+cachetools
