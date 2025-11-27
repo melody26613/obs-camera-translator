@@ -62,12 +62,11 @@ pip install -r requirements.txt
 
 ## OBS Setting
 1. output the game screen via the OBS virtual camera
-2. execute `python utils/list_all_camera.py` to get the device id of the OBS virtual camera, and set it to VIDEO_SOURCE_DEVICE in `capture_camera.py`
-3. execute `python capture_camera.py`
-4. add the output image `pic/translated_text_overlay.png` as a source in OBS
+2. execute `python capture_camera.py`
+3. add the output image `pic/translated_text_overlay.png` as a source in OBS
 
 ## TODO
-1. detect obs virtual camera automatically
-2. detect audio device automatically
-3. set OCR_SERVICE_URL from capture_camera.py -> image_trans.py
-4. set OLLAMA_HOST from capture_camera.py -> image_trans.py -> translator.py
+1. check audio VAD setting
+2. set OCR_SERVICE_URL from capture_camera.py -> image_trans.py
+3. set OLLAMA_HOST from capture_camera.py -> image_trans.py -> translator.py
+4. draw architecture
