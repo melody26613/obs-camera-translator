@@ -6,12 +6,12 @@ import uuid
 import shutil
 
 from datetime import datetime
+from pygrabber.dshow_graph import FilterGraph
 
 from logger import build_logger
 from image_trans import image_translate, TRANS_DEST_IMAGE_PATH
 
-# check source by execute 'python list_all_camera.py'
-VIDEO_SOURCE_DEVICE = 2
+VIDEO_OBS_VIRTUAL_CAMERA_NAME = "OBS Virtual Camera"
 
 TARGET_WIDTH = 1280
 TARGET_HEIGHT = 720
@@ -26,8 +26,23 @@ BLANK_IMAGE = "./pic/blank.png"
 
 SHOW_CURRENT_VIDEO = False
 
+
+def detect_obs_virtual_camera():
+    devices = FilterGraph().get_input_devices()
+
+    for index, device in enumerate(devices):
+        print(index, device)
+        if VIDEO_OBS_VIRTUAL_CAMERA_NAME in device:
+            print(f"[detect_obs_virtual_camera] choose device index {index}")
+            return index
+
+    raise Exception(
+        f"Failed to find video device with name '{VIDEO_OBS_VIRTUAL_CAMERA_NAME}'"
+    )
+
+
 logger = build_logger("capture", "capture.log")
-cap = cv2.VideoCapture(VIDEO_SOURCE_DEVICE)
+cap = cv2.VideoCapture(detect_obs_virtual_camera())
 
 if not cap.isOpened():
     logger.error("Failed to turn on the camera.")
