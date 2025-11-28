@@ -12,21 +12,16 @@ logger = build_logger("ocr_trans", "ollama.log")
 GOOGLE_TRANSLATE_SOURCE_LANG = "ja"
 GOOGLE_TRANSLATE_TARGET_LANG = "zh-TW"
 
-OLLAMA_TRANSLATE_SYSTEM_PROMPT = """請將使用者提供的每一段日文分別翻譯成中文。
-輸出時保持相同的行數與順序。
-禁止輸出日文。
-禁止輸出任何解釋、markdown 格式。
-只輸出中文翻譯結果，每一行只包含一段翻譯文字。"""
-
-OLLAMA_TRANSLATE_USER_PROMPT_PREFIX = """"""
-
-
 OLLAMA_MODEL = "gemma2:2b"
 OLLAMA_HOST = "http://localhost:11434"
-OLLAMA_TRANSLATE_TITLE = [
-    "text",
-    "文本",
-]
+
+
+def file_to_string(filename) -> str:
+    with open(filename, "r", encoding="utf-8") as file:
+        return file.read().strip()
+
+
+ollama_translate_system_prompt = file_to_string("translator_prompt.txt")
 
 
 def google_translate(text: str, **kwargs):
@@ -40,8 +35,7 @@ def google_translate(text: str, **kwargs):
         translated_text = translation.text
         return translated_text
     except Exception as e:
-        logger.error(
-            f"""Failed to translate with text: "{text}", the error is: {e}""")
+        logger.error(f"""Failed to translate with text: "{text}", the error is: {e}""")
         return text
 
 
@@ -75,12 +69,12 @@ def ollama_translate_text(text: str, **kwargs) -> str:
         "messages": [
             {
                 "role": "system",
-                "content": OLLAMA_TRANSLATE_SYSTEM_PROMPT,
+                "content": ollama_translate_system_prompt,
             },
             {
                 "role": "user",
-                "content": OLLAMA_TRANSLATE_USER_PROMPT_PREFIX + text,
-            }
+                "content": text,
+            },
         ],
         "stream": False,
         "think": False,
@@ -104,8 +98,7 @@ def ollama_translate_text(text: str, **kwargs) -> str:
 
 
 def ollama_translate_texts(texts: List[str], **kwargs) -> List[str]:
-    formatted_texts = "\n".join(
-        [f"『{text}』" for text in texts])
+    formatted_texts = "\n".join([f"『{text}』" for text in texts])
     logger.info(f"{formatted_texts=}")
 
     translation_string = ollama_translate_text(text=formatted_texts, **kwargs)
@@ -132,10 +125,10 @@ def strip_quotes(text: str) -> str:
         ("「", "」"),
         ("“", "”"),
     ]
-    
+
     for ql, qr in quotes:
         if text.startswith(ql) and text.endswith(qr) and len(text) >= 2:
-            return text[len(ql):-len(qr)]
+            return text[len(ql) : -len(qr)]
     return text
 
 
@@ -143,7 +136,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
     parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
-    parser.add_argument("--mode", type=str, default="llm", help="Translation mode('llm' or 'google'), default using 'llm'(ollama)")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="llm",
+        help="Translation mode('llm' or 'google'), default using 'llm'(ollama)",
+    )
 
     args = parser.parse_args()
     logger.info(f"{args=}")
@@ -166,5 +164,7 @@ if __name__ == "__main__":
     else:
         logger.info("-----Test for LLM translation-----")
         logger.info(f"{texts=}")
-        response = ollama_translate_texts(texts=texts, ollama_host=args.ollama_host, ollama_model=args.ollama_model)
+        response = ollama_translate_texts(
+            texts=texts, ollama_host=args.ollama_host, ollama_model=args.ollama_model
+        )
         logger.info(f"{response=}")
