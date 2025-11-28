@@ -7,18 +7,11 @@ from cachetools import LRUCache
 from typing import List
 
 from logger import build_logger
-from translator import ollama_translate_texts, google_translate_texts
+from translator import ollama_translate_texts, OLLAMA_HOST, OLLAMA_MODEL
 
 OCR_SERVICE_URL = "http://localhost:20000/ocr/dict"
 TRANS_SOURCE_IMAGE_PATH = "pic/test.png"
 TRANS_DEST_IMAGE_PATH = "pic/translated_text_overlay.png"
-
-TRANS_METHOD_MAP = {
-    "ollama": ollama_translate_texts,
-    "google": google_translate_texts,
-}
-
-TRANS_METHOD = TRANS_METHOD_MAP.get("ollama")
 
 # key: original OCR text
 # value: translated text
@@ -51,7 +44,7 @@ def run_ocr_service(image_path, ocr_url=OCR_SERVICE_URL):
         return None
 
 
-def translate_and_cache(texts: List[str]):
+def translate_and_cache(texts: List[str], translate_texts_func: callable):
     """
     Read LRU cache before translation.
     """
@@ -71,7 +64,7 @@ def translate_and_cache(texts: List[str]):
 
     if texts_to_translate:
         try:
-            translations = TRANS_METHOD(texts=texts_to_translate)
+            translations = translate_texts_func(texts=texts_to_translate)
 
             # store into cache
             for original, translation in zip(texts_to_translate, translations):
@@ -86,7 +79,7 @@ def translate_and_cache(texts: List[str]):
     return all_translations
 
 
-def create_text_overlay(image_path, ocr_data, output_path):
+def create_text_overlay(image_path, ocr_data, output_path, translate_texts_func: callable):
     """
     Create a new PNG image, with only translated text and transparent background
     """
@@ -100,7 +93,7 @@ def create_text_overlay(image_path, ocr_data, output_path):
         return
 
     original_texts = [item["transcription"] for item in ocr_data]
-    translations = translate_and_cache(original_texts)
+    translations = translate_and_cache(original_texts, translate_texts_func)
 
     original_img = Image.open(image_path_abs)
     width, height = original_img.size
@@ -187,7 +180,7 @@ def find_font_file() -> str:
     return font_path
 
 
-def image_translate(image_path: str, ocr_url=OCR_SERVICE_URL, output_image=TRANS_DEST_IMAGE_PATH):
+def image_translate(image_path: str, ocr_url=OCR_SERVICE_URL, output_image=TRANS_DEST_IMAGE_PATH, translate_texts_func=ollama_translate_texts):
     if not os.path.exists(image_path):
         logger.error(f"Invalid image path {image_path}")
         return
@@ -197,7 +190,7 @@ def image_translate(image_path: str, ocr_url=OCR_SERVICE_URL, output_image=TRANS
 
     if ocr_result:
         logger.info("--- Step 2 & 3: translate and output to new image ---")
-        create_text_overlay(image_path, ocr_result, output_image)
+        create_text_overlay(image_path, ocr_result, output_image, translate_texts_func)
 
 
 if __name__ == "__main__":
@@ -206,7 +199,23 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=str, default=TRANS_DEST_IMAGE_PATH)
     parser.add_argument("--ocr_url", type=str, default=OCR_SERVICE_URL)
 
+    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
+    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
+
     args = parser.parse_args()
     logger.info(f"{args=}")
 
-    image_translate(image_path=args.input, ocr_url=args.ocr_url, output_image=args.output)
+    translate_kwargs = {
+        "ollama_host": args.ollama_host,
+        "ollama_model": args.ollama_model,
+    }
+
+    def translate_texts(texts: list[str]):
+        return ollama_translate_texts(texts, **translate_kwargs)
+
+    image_translate(
+        image_path=args.input,
+        ocr_url=args.ocr_url,
+        output_image=args.output,
+        translate_texts_func=translate_texts,
+    )

@@ -1,3 +1,4 @@
+import argparse
 import requests
 import json
 import re
@@ -21,15 +22,19 @@ OLLAMA_TRANSLATE_USER_PROMPT_PREFIX = """"""
 
 
 OLLAMA_MODEL = "gemma2:2b"
-OLLAMA_HOST = "http://192.168.50.19:11434"
+OLLAMA_HOST = "http://localhost:11434"
 OLLAMA_TRANSLATE_TITLE = [
     "text",
     "文本",
 ]
 
 
-def google_translate(text: str, src_lang=GOOGLE_TRANSLATE_SOURCE_LANG, dest_lang=GOOGLE_TRANSLATE_TARGET_LANG):
+def google_translate(text: str, **kwargs):
+    src_lang = kwargs.get("src_lang", GOOGLE_TRANSLATE_SOURCE_LANG)
+    dest_lang = kwargs.get("dest_lang", GOOGLE_TRANSLATE_TARGET_LANG)
+
     translator = Translator()
+
     try:
         translation = translator.translate(text, src=src_lang, dest=dest_lang)
         translated_text = translation.text
@@ -40,7 +45,7 @@ def google_translate(text: str, src_lang=GOOGLE_TRANSLATE_SOURCE_LANG, dest_lang
         return text
 
 
-def google_translate_texts(texts: List[str]) -> List[str]:
+def google_translate_texts(texts: List[str], **kwargs) -> List[str]:
     formatted_texts = f"""<!--{"--><!--".join(texts)}-->"""
     logger.info(f"{formatted_texts=}")
 
@@ -58,12 +63,15 @@ def google_translate_texts(texts: List[str]) -> List[str]:
     return matches
 
 
-def ollama_translate_text(text: str, model_name: str = OLLAMA_MODEL, ollama_url: str = OLLAMA_HOST) -> str:
+def ollama_translate_text(text: str, **kwargs) -> str:
     if not text:
         return ""
 
+    ollama_host = kwargs.get("ollama_host", OLLAMA_HOST)
+    ollama_model = kwargs.get("ollama_model", OLLAMA_MODEL)
+
     request_body = {
-        "model": model_name,
+        "model": ollama_model,
         "messages": [
             {
                 "role": "system",
@@ -80,7 +88,7 @@ def ollama_translate_text(text: str, model_name: str = OLLAMA_MODEL, ollama_url:
 
     logger.info(f"{request_body=}")
 
-    api_url = f"{ollama_url}/api/chat"
+    api_url = f"{ollama_host}/api/chat"
     try:
         response = requests.post(api_url, json=request_body, timeout=60)
         response.raise_for_status()
@@ -95,12 +103,12 @@ def ollama_translate_text(text: str, model_name: str = OLLAMA_MODEL, ollama_url:
         return ""
 
 
-def ollama_translate_texts(texts: List[str]) -> List[str]:
+def ollama_translate_texts(texts: List[str], **kwargs) -> List[str]:
     formatted_texts = "\n".join(
         [f"『{text}』" for text in texts])
     logger.info(f"{formatted_texts=}")
 
-    translation_string = ollama_translate_text(text=formatted_texts)
+    translation_string = ollama_translate_text(text=formatted_texts, **kwargs)
     logger.info(f"{translation_string=}")
 
     # split by one new line or multiple new lines
@@ -132,6 +140,14 @@ def strip_quotes(text: str) -> str:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
+    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
+    parser.add_argument("--mode", type=str, default="llm", help="Translation mode('llm' or 'google'), default using 'llm'(ollama)")
+
+    args = parser.parse_args()
+    logger.info(f"{args=}")
+
     texts = [
         "こんにちは",
         "お名前を伺えますか",
@@ -142,14 +158,13 @@ if __name__ == "__main__":
     #     "ふたりは夢でも見ているのかと思ってぽかんとそれを見ていましたが、すぐに神棚の人形とおじいさんとおばあさんの目が合い、人形はぴょんっと下に飛び降りたかとおもうと、ふたりの前にすっくと立ちました。",
     # ]
 
-    logger.info("-----Test for google translate----")
-    logger.info(f"{texts=}")
-    response = google_translate_texts(texts)
-    logger.info(f"{response=}")
-
-    exit(0)
-
-    logger.info("-----Test for LLM translation-----")
-    logger.info(f"{texts=}")
-    response = ollama_translate_texts(texts=texts)
-    logger.info(f"{response=}")
+    if args.mode == "google":
+        logger.info("-----Test for google translate----")
+        logger.info(f"{texts=}")
+        response = google_translate_texts(texts)
+        logger.info(f"{response=}")
+    else:
+        logger.info("-----Test for LLM translation-----")
+        logger.info(f"{texts=}")
+        response = ollama_translate_texts(texts=texts, ollama_host=args.ollama_host, ollama_model=args.ollama_model)
+        logger.info(f"{response=}")

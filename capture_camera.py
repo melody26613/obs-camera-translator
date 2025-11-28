@@ -11,6 +11,7 @@ from pygrabber.dshow_graph import FilterGraph
 
 from logger import build_logger
 from image_trans import image_translate, TRANS_DEST_IMAGE_PATH, OCR_SERVICE_URL
+from translator import OLLAMA_HOST, OLLAMA_MODEL, ollama_translate_texts
 
 VIDEO_OBS_VIRTUAL_CAMERA_NAME = "OBS Virtual Camera"
 
@@ -84,7 +85,7 @@ def image_diff(image_bytes1: bytes, image_bytes2: bytes) -> float:
     return mse
 
 
-def trigger_image_trans(frame, ocr_url: str):
+def trigger_image_trans(frame, ocr_url: str, translate_texts_func: callable):
     logger.info("image_trans triggered!")
 
     set_trans_image_blank()
@@ -94,7 +95,11 @@ def trigger_image_trans(frame, ocr_url: str):
     cv2.imwrite(image_path, frame)
     logger.info(f"Saved frame to {image_path}")
 
-    image_translate(image_path=image_path, ocr_url=ocr_url)
+    image_translate(
+        image_path=image_path,
+        ocr_url=ocr_url,
+        translate_texts_func=translate_texts_func,
+    )
     os.remove(image_path)
 
 
@@ -104,7 +109,7 @@ def gen_png_filename() -> str:
     return f"{timestamp}_{unique_id}.png"
 
 
-def keep_capture_and_translate(ocr_url: str):
+def keep_capture_and_translate(ocr_url: str, translate_texts_func: callable):
     if not os.path.exists(TEMP_IMAGE_FOLDER):
         os.mkdir(TEMP_IMAGE_FOLDER)
 
@@ -132,13 +137,13 @@ def keep_capture_and_translate(ocr_url: str):
         frame_bytes = frame_bytes.tobytes()
 
         if prev_frame_bytes is None:
-            trigger_image_trans(frame, ocr_url=ocr_url)
+            trigger_image_trans(frame, ocr_url=ocr_url, translate_texts_func=translate_texts_func)
         else:
             diff = image_diff(prev_frame_bytes, frame_bytes)
             logger.debug(f"Image diff: {diff:.2f}")
 
             if diff > IMAGE_DIFF_THRESHOLD:
-                trigger_image_trans(frame, ocr_url=ocr_url)
+                trigger_image_trans(frame, ocr_url=ocr_url, translate_texts_func=translate_texts_func)
 
         prev_frame_bytes = frame_bytes
 
@@ -157,8 +162,21 @@ def keep_capture_and_translate(ocr_url: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--ocr_url", type=str, default=OCR_SERVICE_URL)
+    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
+    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
 
     args = parser.parse_args()
     logger.info(f"{args=}")
 
-    keep_capture_and_translate(ocr_url=args.ocr_url)
+    translate_kwargs = {
+        "ollama_host": args.ollama_host,
+        "ollama_model": args.ollama_model,
+    }
+
+    def translate_texts(texts: list[str]):
+        return ollama_translate_texts(texts, **translate_kwargs)
+
+    keep_capture_and_translate(
+        ocr_url=args.ocr_url,
+        translate_texts_func=translate_texts,
+    )

@@ -66,7 +66,4 @@ pip install -r requirements.txt
 3. add the output image `pic/translated_text_overlay.png` as a source in OBS
 
 ## TODO
-1. check audio VAD setting
-2. set OCR_SERVICE_URL from capture_camera.py -> image_trans.py
-3. set OLLAMA_HOST from capture_camera.py -> image_trans.py -> translator.py
-4. draw architecture
+* draw architecture
