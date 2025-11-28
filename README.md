@@ -62,7 +62,7 @@ pip install -r requirements.txt
 
 ## OBS Setting
 1. output the game screen via the OBS virtual camera
-2. execute `python capture_camera.py`
+2. execute `python capture_camera.py --ocr_url http://<ip>:<port>/ocr/dict --ollama_host http://<ip>:<port> --ollama_model <model_name>`
 3. add the output image `pic/translated_text_overlay.png` as a source in OBS
 
 ## TODO
