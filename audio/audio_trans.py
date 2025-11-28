@@ -168,18 +168,20 @@ if __name__ == "__main__":
 
     Thread(target=transcription_worker, daemon=True).start()
 
-    audio_input_device = detect_audio_device()
-
-    client = MyTranscriptionClient(
-        host=args.stt_host,
-        port=args.stt_port,
-        lang=args.lang,
-        transcription_callback=on_transcription,
-        audio_input_device=audio_input_device,
-        output_transcription_path=args.output_transcription_path,
-    )
+    common_kwargs = {
+        "host": args.stt_host,
+        "port": args.stt_port,
+        "lang": args.lang,
+        "transcription_callback": on_transcription,
+        "output_transcription_path": args.output_transcription_path,
+    }
 
     if args.file:
+        client = MyTranscriptionClient(**common_kwargs)
         client(args.file)
     else:
+        client = MyTranscriptionClient(
+            **common_kwargs,
+            audio_input_device=detect_audio_device()
+        )
         client()
