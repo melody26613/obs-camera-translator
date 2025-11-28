@@ -1,3 +1,4 @@
+import argparse
 import cv2
 import time
 import numpy as np
@@ -9,7 +10,7 @@ from datetime import datetime
 from pygrabber.dshow_graph import FilterGraph
 
 from logger import build_logger
-from image_trans import image_translate, TRANS_DEST_IMAGE_PATH
+from image_trans import image_translate, TRANS_DEST_IMAGE_PATH, OCR_SERVICE_URL
 
 VIDEO_OBS_VIRTUAL_CAMERA_NAME = "OBS Virtual Camera"
 
@@ -26,6 +27,8 @@ BLANK_IMAGE = "./pic/blank.png"
 
 SHOW_CURRENT_VIDEO = False
 
+logger = build_logger("capture", "capture.log")
+
 
 def detect_obs_virtual_camera():
     devices = FilterGraph().get_input_devices()
@@ -41,19 +44,21 @@ def detect_obs_virtual_camera():
     )
 
 
-logger = build_logger("capture", "capture.log")
-cap = cv2.VideoCapture(detect_obs_virtual_camera())
+def init_video_capture():
+    cap = cv2.VideoCapture(detect_obs_virtual_camera())
 
-if not cap.isOpened():
-    logger.error("Failed to turn on the camera.")
-    exit()
+    if not cap.isOpened():
+        logger.error("Failed to turn on the camera.")
+        exit()
 
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, TARGET_WIDTH)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, TARGET_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
 
-actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-logger.info(f"Camera resolution set to {actual_width}x{actual_height}")
+    actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    logger.info(f"Camera resolution set to {actual_width}x{actual_height}")
+
+    return cap
 
 
 def set_trans_image_blank():
@@ -79,7 +84,7 @@ def image_diff(image_bytes1: bytes, image_bytes2: bytes) -> float:
     return mse
 
 
-def trigger_image_trans(frame):
+def trigger_image_trans(frame, ocr_url: str):
     logger.info("image_trans triggered!")
 
     set_trans_image_blank()
@@ -89,7 +94,7 @@ def trigger_image_trans(frame):
     cv2.imwrite(image_path, frame)
     logger.info(f"Saved frame to {image_path}")
 
-    image_translate(image_path=image_path)
+    image_translate(image_path=image_path, ocr_url=ocr_url)
     os.remove(image_path)
 
 
@@ -99,13 +104,14 @@ def gen_png_filename() -> str:
     return f"{timestamp}_{unique_id}.png"
 
 
-def main():
+def keep_capture_and_translate(ocr_url: str):
     if not os.path.exists(TEMP_IMAGE_FOLDER):
         os.mkdir(TEMP_IMAGE_FOLDER)
 
     retry_count = 0
     prev_frame_bytes = None
 
+    cap = init_video_capture()
     set_trans_image_blank()
 
     while True:
@@ -126,13 +132,13 @@ def main():
         frame_bytes = frame_bytes.tobytes()
 
         if prev_frame_bytes is None:
-            trigger_image_trans(frame)
+            trigger_image_trans(frame, ocr_url=ocr_url)
         else:
             diff = image_diff(prev_frame_bytes, frame_bytes)
             logger.debug(f"Image diff: {diff:.2f}")
 
             if diff > IMAGE_DIFF_THRESHOLD:
-                trigger_image_trans(frame)
+                trigger_image_trans(frame, ocr_url=ocr_url)
 
         prev_frame_bytes = frame_bytes
 
@@ -149,4 +155,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ocr_url", type=str, default=OCR_SERVICE_URL)
+
+    args = parser.parse_args()
+    logger.info(f"{args=}")
+
+    keep_capture_and_translate(ocr_url=args.ocr_url)

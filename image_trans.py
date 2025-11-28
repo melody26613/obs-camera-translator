@@ -1,3 +1,4 @@
+import argparse
 import requests
 import os
 
@@ -8,7 +9,7 @@ from typing import List
 from logger import build_logger
 from translator import ollama_translate_texts, google_translate_texts
 
-OCR_SERVICE_URL = "http://192.168.50.19:20000/ocr/dict"
+OCR_SERVICE_URL = "http://localhost:20000/ocr/dict"
 TRANS_SOURCE_IMAGE_PATH = "pic/test.png"
 TRANS_DEST_IMAGE_PATH = "pic/translated_text_overlay.png"
 
@@ -26,7 +27,7 @@ translation_cache = LRUCache(maxsize=1000)
 logger = build_logger("ocr_trans", "ocr_trans.log")
 
 
-def run_ocr_service(image_path):
+def run_ocr_service(image_path, ocr_url=OCR_SERVICE_URL):
     """
     call OCR service to get text and coordinate
     """
@@ -40,13 +41,13 @@ def run_ocr_service(image_path):
             files = {
                 "file": (os.path.basename(image_path_abs), f, "image/png")
             }
-            response = requests.post(OCR_SERVICE_URL, files=files)
+            response = requests.post(ocr_url, files=files)
             response.raise_for_status()
             return response.json()
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed when calling OCR service: {e}")
         logger.error(
-            f"Please make sure the OCR service is running at {OCR_SERVICE_URL}")
+            f"Please make sure the OCR service is running at {ocr_url}")
         return None
 
 
@@ -186,18 +187,26 @@ def find_font_file() -> str:
     return font_path
 
 
-def image_translate(image_path: str):
+def image_translate(image_path: str, ocr_url=OCR_SERVICE_URL, output_image=TRANS_DEST_IMAGE_PATH):
     if not os.path.exists(image_path):
         logger.error(f"Invalid image path {image_path}")
         return
 
     logger.info("--- Step 1: calling OCR service ---")
-    ocr_result = run_ocr_service(image_path)
+    ocr_result = run_ocr_service(image_path=image_path, ocr_url=ocr_url)
 
     if ocr_result:
         logger.info("--- Step 2 & 3: translate and output to new image ---")
-        create_text_overlay(image_path, ocr_result, TRANS_DEST_IMAGE_PATH)
+        create_text_overlay(image_path, ocr_result, output_image)
 
 
 if __name__ == "__main__":
-    image_translate(TRANS_SOURCE_IMAGE_PATH)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=str, default=TRANS_SOURCE_IMAGE_PATH)
+    parser.add_argument("--output", type=str, default=TRANS_DEST_IMAGE_PATH)
+    parser.add_argument("--ocr_url", type=str, default=OCR_SERVICE_URL)
+
+    args = parser.parse_args()
+    logger.info(f"{args=}")
+
+    image_translate(image_path=args.input, ocr_url=args.ocr_url, output_image=args.output)
