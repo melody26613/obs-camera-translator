@@ -91,13 +91,30 @@ python
 >>> client("demon_slayer_infinity_castle_trailer.mp3")
 ```
 
-* run by python script
+* run by python script, **without** translate by Ollama LLM
 ```bash
 # check your audio device by audio/list_audio_devices.py
 # modify the AUDIO_DEVICE_NAME in audio/audio_trans.py
 
-# execute this under obs-camera-translator/
+# execute under obs-camera-translator/
+# testing audio file
 python -m audio.audio_trans --stt_host localhost --stt_port 9090 --lang ja --file audio/demon_slayer_infinity_castle_trailer.mp3
+
+# testing microphone
+python -m audio.audio_trans --stt_host localhost --stt_port 9090 --lang ja
+```
+
+* run by python script, **with** translate by Ollama LLM
+```bash
+# check your audio device by audio/list_audio_devices.py
+# modify the AUDIO_DEVICE_NAME in audio/audio_trans.py
+
+# execute under obs-camera-translator/
+# testing audio file
+python -m audio.audio_trans --stt_host localhost --stt_port 9090 --lang ja --file audio/demon_slayer_infinity_castle_trailer.mp3 --enable_translate --ollama_host http://<ip>:<port> --ollama_model <model_name>
+
+# testing microphone
+python -m audio.audio_trans --stt_host localhost --stt_port 9090 --lang ja --enable_translate --ollama_host http://<ip>:<port> --ollama_model <model_name>
 ```
 
 ## References

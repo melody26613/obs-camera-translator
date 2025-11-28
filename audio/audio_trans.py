@@ -4,10 +4,12 @@ import json
 import time
 import traceback
 
-from audio.my_whisperlive_client import MyTranscriptionClient
-from logger import build_logger
 from cachetools import FIFOCache
 from threading import Thread
+
+from audio.my_whisperlive_client import MyTranscriptionClient
+from logger import build_logger
+from translator import ollama_translate_text, OLLAMA_HOST, OLLAMA_MODEL
 
 AUDIO_DEVICE_NAME = "AVerMedia ExtremeCap UA"
 
@@ -69,9 +71,7 @@ def on_transcription(texts: str, transcriptions: list):
         orig_transcription_cache[start_time] = orig
 
 
-def transcription_worker():
-    global orig_transcription_cache
-
+def transcription_worker(translate_text_func: callable):
     while True:
         try:
             if len(orig_transcription_cache) == 0:
@@ -95,9 +95,7 @@ def transcription_worker():
                     copied_data = orig.copy()
 
                 if completed and not already_translated:
-                    copied_data["translated_text"] = (
-                        f"Melody simulate translate: {text}"  # TODO: translate text
-                    )
+                    copied_data["translated_text"] = translate_text_func(text)
                     is_updated = True
 
                 if start_time not in translated_cache:
@@ -163,10 +161,30 @@ if __name__ == "__main__":
         "--output_transcription_path", type=str, default="audio/output.srt"
     )
 
+    parser.add_argument("--enable_translate", action="store_true")
+    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
+    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
+
     args = parser.parse_args()
     logger.info(f"{args=}")
 
-    Thread(target=transcription_worker, daemon=True).start()
+    def translate_text(text: str):
+        if args.enable_translate:
+            translate_kwargs = {
+                "ollama_host": args.ollama_host,
+                "ollama_model": args.ollama_model,
+            }
+            return ollama_translate_text(text, **translate_kwargs).strip()
+        else:
+            return f"Skip translation '{text}'"
+
+    Thread(
+        target=transcription_worker,
+        kwargs={
+            "translate_text_func": translate_text,
+        },
+        daemon=True,
+    ).start()
 
     common_kwargs = {
         "host": args.stt_host,

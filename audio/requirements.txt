@@ -4,3 +4,4 @@ scipy
 websocket-client
 whisper-live
 cachetools
+googletrans==4.0.0-rc1
