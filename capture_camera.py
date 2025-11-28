@@ -168,12 +168,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logger.info(f"{args=}")
 
-    translate_kwargs = {
-        "ollama_host": args.ollama_host,
-        "ollama_model": args.ollama_model,
-    }
-
     def translate_texts(texts: list[str]):
+        translate_kwargs = {
+            "ollama_host": args.ollama_host,
+            "ollama_model": args.ollama_model,
+        }
         return ollama_translate_texts(texts, **translate_kwargs)
 
     keep_capture_and_translate(
