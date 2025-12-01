@@ -22,7 +22,7 @@ docker pull ghcr.io/collabora/whisperlive-gpu:latest
 docker run -d --name whisperlive --gpus all -p 9090:9090 \
     -v /mnt/d/workspace/models/hf_models:/models \
     ghcr.io/collabora/whisperlive-gpu:latest \
-    python run_server.py --faster_whisper_custom_model_path /models/Systran/faster-whisper-small
+    python run_server.py --faster_whisper_custom_model_path /models/Systran/faster-whisper-small --max_connection_time 28800
 
 # Error on Nvidia MX350
 # INFO:root:Custom model option was provided. Switching to single model mode.
