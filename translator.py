@@ -124,6 +124,7 @@ def strip_quotes(text: str) -> str:
         ("'", "'"),
         ("「", "」"),
         ("“", "”"),
+        ("《", "》"),
     ]
 
     for ql, qr in quotes:
