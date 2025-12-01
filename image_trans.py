@@ -31,16 +31,13 @@ def run_ocr_service(image_path, ocr_url=OCR_SERVICE_URL):
 
     try:
         with open(image_path_abs, "rb") as f:
-            files = {
-                "file": (os.path.basename(image_path_abs), f, "image/png")
-            }
+            files = {"file": (os.path.basename(image_path_abs), f, "image/png")}
             response = requests.post(ocr_url, files=files)
             response.raise_for_status()
             return response.json()
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed when calling OCR service: {e}")
-        logger.error(
-            f"Please make sure the OCR service is running at {ocr_url}")
+        logger.error(f"Please make sure the OCR service is running at {ocr_url}")
         return None
 
 
@@ -58,7 +55,8 @@ def translate_and_cache(texts: List[str], translate_texts_func: callable):
         if text in translation_cache:
             all_translations[text] = translation_cache[text]
             print(
-                f"""Get cache with key:"{text}", value: "{translation_cache[text]}" """)
+                f"""Get cache with key:"{text}", value: "{translation_cache[text]}" """
+            )
         else:
             texts_to_translate.append(text)
 
@@ -73,13 +71,14 @@ def translate_and_cache(texts: List[str], translate_texts_func: callable):
                 print(f"New translation: {original} -> {translation}")
 
         except Exception as e:
-            print(
-                f"""Failed to translate: {texts_to_translate}, the error is: {e}""")
+            print(f"""Failed to translate: {texts_to_translate}, the error is: {e}""")
 
     return all_translations
 
 
-def create_text_overlay(image_path, ocr_data, output_path, translate_texts_func: callable):
+def create_text_overlay(
+    image_path, ocr_data, output_path, translate_texts_func: callable
+):
     """
     Create a new PNG image, with only translated text and transparent background
     """
@@ -119,13 +118,20 @@ def create_text_overlay(image_path, ocr_data, output_path, translate_texts_func:
         start_x = points[0][0] + (box_width - text_width) / 2
         start_y = points[0][1] + (box_height - text_height) / 2
 
+        bg_padding = 4
+        bg_x1 = start_x - bg_padding
+        bg_y1 = start_y - bg_padding
+        bg_x2 = start_x + text_width + bg_padding
+        bg_y2 = start_y + text_height + bg_padding
+        draw.rectangle([bg_x1, bg_y1, bg_x2, bg_y2], fill=(255, 255, 255, 80)) # the last is alpha (0~255)
+
         draw.text(
             (start_x, start_y),
             translated_text,
             font=font,
             fill=(0, 0, 0),  # fill font with color black
-            stroke_width=5,  # font stroke width
-            stroke_fill=(255, 255, 255)  # set font stroke with color white
+            stroke_width=3,  # font stroke width
+            stroke_fill=(255, 255, 255),  # set font stroke with color white
         )
 
     output_dir = os.path.dirname(output_path)
@@ -159,15 +165,18 @@ def find_font_file() -> str:
     font_path = None
 
     if os.name == "nt":
-        font_paths = ["C:/Windows/Fonts/msjh.ttc",
-                      "C:/Windows/Fonts/simsun.ttc"]
+        font_paths = ["C:/Windows/Fonts/msjh.ttc", "C:/Windows/Fonts/simsun.ttc"]
     elif os.name == "posix":
         if os.uname().sysname == "Darwin":
-            font_paths = ["/System/Library/Fonts/PingFang.ttc",
-                          "/Library/Fonts/Arial Unicode.ttf"]
+            font_paths = [
+                "/System/Library/Fonts/PingFang.ttc",
+                "/Library/Fonts/Arial Unicode.ttf",
+            ]
         else:
-            font_paths = ["/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-                          "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"]
+            font_paths = [
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+            ]
 
     for path in font_paths:
         if os.path.exists(path):
@@ -180,7 +189,12 @@ def find_font_file() -> str:
     return font_path
 
 
-def image_translate(image_path: str, ocr_url=OCR_SERVICE_URL, output_image=TRANS_DEST_IMAGE_PATH, translate_texts_func=ollama_translate_texts):
+def image_translate(
+    image_path: str,
+    ocr_url=OCR_SERVICE_URL,
+    output_image=TRANS_DEST_IMAGE_PATH,
+    translate_texts_func=ollama_translate_texts,
+):
     if not os.path.exists(image_path):
         logger.error(f"Invalid image path {image_path}")
         return
