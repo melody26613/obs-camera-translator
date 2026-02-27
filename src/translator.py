@@ -5,9 +5,9 @@ import os
 
 from typing import List
 from dotenv import load_dotenv
-
-from logger import build_logger
 from googletrans import Translator
+
+from src.logger import build_logger
 
 load_dotenv()
 

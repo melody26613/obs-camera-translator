@@ -7,8 +7,8 @@ from cachetools import LRUCache
 from typing import List
 from dotenv import load_dotenv
 
-from logger import build_logger
-from translator import llm_translate_texts, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL
+from src.logger import build_logger
+from src.translator import llm_translate_texts, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL
 
 load_dotenv()
 

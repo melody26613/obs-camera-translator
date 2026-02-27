@@ -68,7 +68,7 @@ cp .example.env .env
 vim .env
     # do some edition
 ```
-3. execute `python capture_camera.py --ocr_url http://<ip>:<port>/ocr/dict --llm_host http://<ip>:<port> --llm_model <model_name>`
+3. execute `python -m src.capture_camera --ocr_url http://<ip>:<port>/ocr/dict --llm_host http://<ip>:<port> --llm_model <model_name>`
 4. add the output image `pic/translated_text_overlay.png` as a source in OBS
 
 ## TODO

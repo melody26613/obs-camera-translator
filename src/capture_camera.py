@@ -10,9 +10,9 @@ from datetime import datetime
 from pygrabber.dshow_graph import FilterGraph
 from dotenv import load_dotenv
 
-from logger import build_logger
-from image_trans import image_translate, OBS_TRANS_IMAGE_DEST_PATH, OBS_TRANS_OCR_URL
-from translator import OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL, llm_translate_texts
+from src.logger import build_logger
+from src.image_trans import image_translate, OBS_TRANS_IMAGE_DEST_PATH, OBS_TRANS_OCR_URL
+from src.translator import OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL, llm_translate_texts
 
 load_dotenv()
 

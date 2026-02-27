@@ -7,9 +7,9 @@ import traceback
 from cachetools import FIFOCache
 from threading import Thread
 
-from audio.my_whisperlive_client import MyTranscriptionClient
-from logger import build_logger
-from translator import llm_translate_text, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL
+from src.logger import build_logger
+from src.translator import llm_translate_text, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL
+from src.audio.my_whisperlive_client import MyTranscriptionClient
 
 AUDIO_DEVICE_NAME = "AVerMedia ExtremeCap UA"
 
@@ -199,7 +199,6 @@ if __name__ == "__main__":
         client(args.file)
     else:
         client = MyTranscriptionClient(
-            **common_kwargs,
-            audio_input_device=detect_audio_device()
+            **common_kwargs, audio_input_device=detect_audio_device()
         )
         client()
