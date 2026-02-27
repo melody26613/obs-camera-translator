@@ -1,28 +1,40 @@
 import pyaudio
 import argparse
-import json
 import time
 import traceback
+import os
 
 from cachetools import FIFOCache
 from threading import Thread
+from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 from src.logger import build_logger
 from src.translator import llm_translate_text, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL
 from src.audio.my_whisperlive_client import MyTranscriptionClient
 
-AUDIO_DEVICE_NAME = "AVerMedia ExtremeCap UA"
+load_dotenv()
 
-TRANSCRIPTION_TEXT_FILENAME = "audio/translated_audio_text.txt"
-MAX_ON_TRANSCRIPTION_CACHE_LEN = 20
-MAX_TRANSLATED_CACHE_LEN = 60
-MAX_OUTPUT_LEN = 10
+OBS_TRANS_AUDIO_DEVICE_NAME = os.getenv("OBS_TRANS_AUDIO_DEVICE_NAME")
+
+OBS_TRANS_STT_HOST = os.getenv("OBS_TRANS_STT_HOST")
+OBS_TRANS_STT_SOURCE_LANG = os.getenv("OBS_TRANS_STT_SOURCE_LANG")
+OBS_TRANS_STT_OUTPUT_SRT_FILE = os.getenv("OBS_TRANS_STT_OUTPUT_SRT_FILE")
+OBS_TRANS_STT_OUTPUT_TRANSCRIPTION = os.getenv("OBS_TRANS_STT_OUTPUT_TRANSCRIPTION")
+
+OBS_TRANS_STT_CACHE_TRANSCRIPTION_LEN = int(
+    os.getenv("OBS_TRANS_STT_CACHE_TRANSCRIPTION_LEN")
+)
+OBS_TRANS_STT_CACHE_TRANSLATION_LEN = int(
+    os.getenv("OBS_TRANS_STT_CACHE_TRANSLATION_LEN")
+)
+OBS_TRANS_STT_MAX_OUTPUT_LEN = int(os.getenv("OBS_TRANS_STT_MAX_OUTPUT_LEN"))
 
 # key: start time in string, value: transcript dict
-orig_transcription_cache = FIFOCache(maxsize=MAX_ON_TRANSCRIPTION_CACHE_LEN)
+orig_transcription_cache = FIFOCache(maxsize=OBS_TRANS_STT_CACHE_TRANSCRIPTION_LEN)
 
 # key: start time in string, value: translated dict
-translated_cache = FIFOCache(maxsize=MAX_TRANSLATED_CACHE_LEN)
+translated_cache = FIFOCache(maxsize=OBS_TRANS_STT_CACHE_TRANSLATION_LEN)
 
 logger = build_logger("audio", "audio.log")
 
@@ -36,11 +48,13 @@ def detect_audio_device():
         if dev["maxInputChannels"] > 0:
             print(f"device [{index}] {dev['name']}")
 
-            if AUDIO_DEVICE_NAME in dev["name"]:
+            if OBS_TRANS_AUDIO_DEVICE_NAME in dev["name"]:
                 print(f"[detect_audio_device] choose device index {index}")
                 return index
 
-    raise Exception(f"Failed to find audio device with name '{AUDIO_DEVICE_NAME}'")
+    raise Exception(
+        f"Failed to find audio device with name '{OBS_TRANS_AUDIO_DEVICE_NAME}'"
+    )
 
 
 def on_transcription(texts: str, transcriptions: list):
@@ -119,14 +133,14 @@ def transcription_worker(translate_text_func: callable):
             time.sleep(0.1)
 
 
-def output_transcription(cache: FIFOCache, filename=TRANSCRIPTION_TEXT_FILENAME):
+def output_transcription(cache: FIFOCache, filename=OBS_TRANS_STT_OUTPUT_TRANSCRIPTION):
     is_first_line = True
 
     print(f"----------------------------------------")
 
     with open(filename, "w", encoding="utf-8") as f:
-        if len(cache) > MAX_OUTPUT_LEN:
-            last_start_times = list(cache.keys())[-MAX_OUTPUT_LEN:]
+        if len(cache) > OBS_TRANS_STT_MAX_OUTPUT_LEN:
+            last_start_times = list(cache.keys())[-OBS_TRANS_STT_MAX_OUTPUT_LEN:]
         else:
             last_start_times = list(cache.keys())
 
@@ -153,12 +167,11 @@ def output_transcription(cache: FIFOCache, filename=TRANSCRIPTION_TEXT_FILENAME)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--stt_host", type=str, default="localhost")
-    parser.add_argument("--stt_port", type=int, default=9090)
-    parser.add_argument("--lang", type=str, default="ja")
+    parser.add_argument("--stt_host", type=str, default=OBS_TRANS_STT_HOST)
+    parser.add_argument("--lang", type=str, default=OBS_TRANS_STT_SOURCE_LANG)
     parser.add_argument("--file", type=str, default=None)
     parser.add_argument(
-        "--output_transcription_path", type=str, default="audio/output.srt"
+        "--output_transcription_path", type=str, default=OBS_TRANS_STT_OUTPUT_SRT_FILE
     )
 
     parser.add_argument("--enable_translate", action="store_true")
@@ -186,9 +199,13 @@ if __name__ == "__main__":
         daemon=True,
     ).start()
 
+    parsed_url = urlparse(args.stt_host)
+    stt_ip = parsed_url.hostname
+    stt_port = parsed_url.port
+
     common_kwargs = {
-        "host": args.stt_host,
-        "port": args.stt_port,
+        "host": stt_ip,
+        "port": stt_port,
         "lang": args.lang,
         "transcription_callback": on_transcription,
         "output_transcription_path": args.output_transcription_path,
