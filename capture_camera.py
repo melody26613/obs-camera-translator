@@ -20,7 +20,7 @@ TARGET_HEIGHT = 1080
 
 RETRY_COUNT = 5
 RETRY_DELAY_SEC = 3
-IMAGE_DIFF_THRESHOLD = 20.0
+IMAGE_DIFF_THRESHOLD = 30.0
 IMAGE_TIME_INTERVAL = 0.2
 
 TEMP_IMAGE_FOLDER = "./temp"
@@ -100,12 +100,15 @@ def trigger_image_trans(frame, ocr_url: str, translate_texts_func: callable):
         ocr_url=ocr_url,
         translate_texts_func=translate_texts_func,
     )
-    os.remove(image_path)
+    try:
+        os.remove(image_path)
+    except Exception as e:
+        logger.warning(f"Failed to remove image with error {e}")
 
 
 def gen_png_filename() -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    unique_id = str(uuid.uuid4())[:8]
+    unique_id = str(uuid.uuid4())
     return f"{timestamp}_{unique_id}.png"
 
 
