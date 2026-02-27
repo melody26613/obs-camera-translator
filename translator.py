@@ -13,6 +13,8 @@ load_dotenv()
 
 OBS_TRANS_LLM_HOST = os.getenv("OBS_TRANS_LLM_HOST")
 OBS_TRANS_LLM_MODEL = os.getenv("OBS_TRANS_LLM_MODEL")
+OBS_TRANS_TIMEOUT_SEC_LLM = int(os.getenv("OBS_TRANS_TIMEOUT_SEC_LLM"))
+
 OBS_TRANS_MODE = os.getenv("OBS_TRANS_MODE").lower()
 
 OBS_TRANS_LLM_SYSTEM_PROMPT = os.getenv("OBS_TRANS_LLM_SYSTEM_PROMPT")
@@ -91,7 +93,9 @@ def llm_translate_text(text: str, **kwargs) -> str:
 
     api_url = f"{llm_host}/api/chat"
     try:
-        response = requests.post(api_url, json=request_body, timeout=30)
+        response = requests.post(
+            api_url, json=request_body, timeout=OBS_TRANS_TIMEOUT_SEC_LLM
+        )
         response.raise_for_status()
 
         llm_response = response.json()

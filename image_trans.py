@@ -13,6 +13,8 @@ from translator import llm_translate_texts, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MO
 load_dotenv()
 
 OBS_TRANS_OCR_URL = os.getenv("OBS_TRANS_OCR_URL")
+OBS_TRANS_TIMEOUT_SEC_OCR = int(os.getenv("OBS_TRANS_TIMEOUT_SEC_OCR"))
+
 OBS_TRANS_IMAGE_SOURCE_PATH = os.getenv("OBS_TRANS_IMAGE_SOURCE_PATH")
 OBS_TRANS_IMAGE_DEST_PATH = os.getenv("OBS_TRANS_IMAGE_DEST_PATH")
 
@@ -42,7 +44,9 @@ def run_ocr_service(image_path, ocr_url=OBS_TRANS_OCR_URL):
     try:
         with open(image_path_abs, "rb") as f:
             files = {"file": (os.path.basename(image_path_abs), f, "image/png")}
-            response = requests.post(ocr_url, files=files, timeout=5)
+            response = requests.post(
+                ocr_url, files=files, timeout=OBS_TRANS_TIMEOUT_SEC_OCR
+            )
             response.raise_for_status()
             return response.json()
     except requests.exceptions.RequestException as e:
