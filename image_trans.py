@@ -13,6 +13,8 @@ OCR_SERVICE_URL = "http://localhost:20000/ocr/dict"
 TRANS_SOURCE_IMAGE_PATH = "pic/test.png"
 TRANS_DEST_IMAGE_PATH = "pic/translated_text_overlay.png"
 
+TRANS_LEN_THRESHOLD = 5  # translate when text length over this threshold
+
 # key: original OCR text
 # value: translated text
 translation_cache = LRUCache(maxsize=1000)
@@ -54,13 +56,16 @@ def translate_and_cache(texts: List[str], translate_texts_func: callable):
     for text in texts:
         if text in translation_cache:
             all_translations[text] = translation_cache[text]
-            print(
+            logger.info(
                 f"""Get cache with key:"{text}", value: "{translation_cache[text]}" """
             )
         else:
             texts_to_translate.append(text)
 
-    if texts_to_translate:
+    total_text_length = sum(len(text) for text in texts_to_translate)
+    logger.info(f"Total text length {total_text_length}")
+
+    if texts_to_translate and total_text_length >= TRANS_LEN_THRESHOLD:
         try:
             translations = translate_texts_func(texts=texts_to_translate)
 
@@ -68,10 +73,16 @@ def translate_and_cache(texts: List[str], translate_texts_func: callable):
             for original, translation in zip(texts_to_translate, translations):
                 translation_cache[original] = translation
                 all_translations[original] = translation
-                print(f"New translation: {original} -> {translation}")
+                logger.info(f"New translation: {original} -> {translation}")
 
         except Exception as e:
-            print(f"""Failed to translate: {texts_to_translate}, the error is: {e}""")
+            logger.info(
+                f"""Failed to translate: {texts_to_translate}, the error is: {e}"""
+            )
+
+    else:
+        logger.info(f"Skip translation")
+        all_translations = {}
 
     return all_translations
 
@@ -100,6 +111,11 @@ def create_text_overlay(
     overlay_img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay_img)
 
+    if not translations:
+        logger.info(f"No translation, just draw an empty overlay image, {output_path=}")
+        overlay_img.save(output_path)
+        return
+
     for item in ocr_data:
         original_text = item["transcription"]
         points = item["points"]
@@ -123,7 +139,9 @@ def create_text_overlay(
         bg_y1 = start_y - bg_padding
         bg_x2 = start_x + text_width + bg_padding
         bg_y2 = start_y + text_height + bg_padding
-        draw.rectangle([bg_x1, bg_y1, bg_x2, bg_y2], fill=(255, 255, 255, 80)) # the last is alpha (0~255)
+        draw.rectangle(
+            [bg_x1, bg_y1, bg_x2, bg_y2], fill=(255, 255, 255, 80)
+        )  # the last is alpha (0~255)
 
         draw.text(
             (start_x, start_y),
