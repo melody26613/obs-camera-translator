@@ -222,3 +222,9 @@ __marimo__/
 clean_transcription.txt
 translated_audio_text.txt
 translated_text_overlay.png
+
+# log file
+**/log/*.log*
+
+# temp file
+**/temp/**
