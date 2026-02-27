@@ -5,24 +5,32 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 from cachetools import LRUCache
 from typing import List
+from dotenv import load_dotenv
 
 from logger import build_logger
-from translator import ollama_translate_texts, OLLAMA_HOST, OLLAMA_MODEL
+from translator import llm_translate_texts, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL
 
-OCR_SERVICE_URL = "http://localhost:20000/ocr/dict"
-TRANS_SOURCE_IMAGE_PATH = "pic/test.png"
-TRANS_DEST_IMAGE_PATH = "pic/translated_text_overlay.png"
+load_dotenv()
 
-TRANS_LEN_THRESHOLD = 5  # translate when text length over this threshold
+OBS_TRANS_OCR_URL = os.getenv("OBS_TRANS_OCR_URL")
+OBS_TRANS_IMAGE_SOURCE_PATH = os.getenv("OBS_TRANS_IMAGE_SOURCE_PATH")
+OBS_TRANS_IMAGE_DEST_PATH = os.getenv("OBS_TRANS_IMAGE_DEST_PATH")
+
+# translate when text length over this threshold
+OBS_TRANS_IMAGE_TEXT_LEN_THRESHOLD = int(
+    os.getenv("OBS_TRANS_IMAGE_TEXT_LEN_THRESHOLD")
+)
+
+OBS_TRANS_IMAGE_CACHE_SIZE = int(os.getenv("OBS_TRANS_IMAGE_CACHE_SIZE"))
 
 # key: original OCR text
 # value: translated text
-translation_cache = LRUCache(maxsize=1000)
+translation_cache = LRUCache(maxsize=OBS_TRANS_IMAGE_CACHE_SIZE)
 
 logger = build_logger("ocr_trans", "ocr_trans.log")
 
 
-def run_ocr_service(image_path, ocr_url=OCR_SERVICE_URL):
+def run_ocr_service(image_path, ocr_url=OBS_TRANS_OCR_URL):
     """
     call OCR service to get text and coordinate
     """
@@ -65,7 +73,7 @@ def translate_and_cache(texts: List[str], translate_texts_func: callable):
     total_text_length = sum(len(text) for text in texts_to_translate)
     logger.info(f"Total text length {total_text_length}")
 
-    if texts_to_translate and total_text_length >= TRANS_LEN_THRESHOLD:
+    if texts_to_translate and total_text_length >= OBS_TRANS_IMAGE_TEXT_LEN_THRESHOLD:
         try:
             translations = translate_texts_func(texts=texts_to_translate)
 
@@ -209,9 +217,9 @@ def find_font_file() -> str:
 
 def image_translate(
     image_path: str,
-    ocr_url=OCR_SERVICE_URL,
-    output_image=TRANS_DEST_IMAGE_PATH,
-    translate_texts_func=ollama_translate_texts,
+    ocr_url=OBS_TRANS_OCR_URL,
+    output_image=OBS_TRANS_IMAGE_DEST_PATH,
+    translate_texts_func=llm_translate_texts,
 ):
     if not os.path.exists(image_path):
         logger.error(f"Invalid image path {image_path}")
@@ -227,22 +235,22 @@ def image_translate(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, default=TRANS_SOURCE_IMAGE_PATH)
-    parser.add_argument("--output", type=str, default=TRANS_DEST_IMAGE_PATH)
-    parser.add_argument("--ocr_url", type=str, default=OCR_SERVICE_URL)
+    parser.add_argument("--input", type=str, default=OBS_TRANS_IMAGE_SOURCE_PATH)
+    parser.add_argument("--output", type=str, default=OBS_TRANS_IMAGE_DEST_PATH)
+    parser.add_argument("--ocr_url", type=str, default=OBS_TRANS_OCR_URL)
 
-    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
-    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
+    parser.add_argument("--llm_host", type=str, default=OBS_TRANS_LLM_HOST)
+    parser.add_argument("--llm_model", type=str, default=OBS_TRANS_LLM_MODEL)
 
     args = parser.parse_args()
     logger.info(f"{args=}")
 
     def translate_texts(texts: list[str]):
         translate_kwargs = {
-            "ollama_host": args.ollama_host,
-            "ollama_model": args.ollama_model,
+            "llm_host": args.llm_host,
+            "llm_model": args.llm_model,
         }
-        return ollama_translate_texts(texts, **translate_kwargs)
+        return llm_translate_texts(texts, **translate_kwargs)
 
     image_translate(
         image_path=args.input,

@@ -8,7 +8,7 @@ Capture video frames from the OBS virtual camera, extract text using [PaddleOCR]
 
 * flow
 
-OBS virtual camera → capture image → PaddleOCR REST API → Ollama translate → Output translated image
+OBS virtual camera → capture image → PaddleOCR REST API → LLM translate → Output translated image
 
 ## Preparation
 1. install [nvidia driver](https://developer.nvidia.com/cuda-downloads)
@@ -62,8 +62,14 @@ pip install -r requirements.txt
 
 ## OBS Setting
 1. output the game screen via the OBS virtual camera
-2. execute `python capture_camera.py --ocr_url http://<ip>:<port>/ocr/dict --ollama_host http://<ip>:<port> --ollama_model <model_name>`
-3. add the output image `pic/translated_text_overlay.png` as a source in OBS
+2. copy .example.env to .env, and edit it
+```bash
+cp .example.env .env
+vim .env
+    # do some edition
+```
+3. execute `python capture_camera.py --ocr_url http://<ip>:<port>/ocr/dict --llm_host http://<ip>:<port> --llm_model <model_name>`
+4. add the output image `pic/translated_text_overlay.png` as a source in OBS
 
 ## TODO
 * draw architecture

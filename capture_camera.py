@@ -8,25 +8,37 @@ import shutil
 
 from datetime import datetime
 from pygrabber.dshow_graph import FilterGraph
+from dotenv import load_dotenv
 
 from logger import build_logger
-from image_trans import image_translate, TRANS_DEST_IMAGE_PATH, OCR_SERVICE_URL
-from translator import OLLAMA_HOST, OLLAMA_MODEL, ollama_translate_texts
+from image_trans import image_translate, OBS_TRANS_IMAGE_DEST_PATH, OBS_TRANS_OCR_URL
+from translator import OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL, llm_translate_texts
 
-VIDEO_OBS_VIRTUAL_CAMERA_NAME = "OBS Virtual Camera"
+load_dotenv()
 
-TARGET_WIDTH = 1920
-TARGET_HEIGHT = 1080
+OBS_TRANS_VIDEO_VIRTUAL_CAMERA_NAME = os.getenv("OBS_TRANS_VIDEO_VIRTUAL_CAMERA_NAME")
 
-RETRY_COUNT = 5
-RETRY_DELAY_SEC = 3
-IMAGE_DIFF_THRESHOLD = 30.0
-IMAGE_TIME_INTERVAL = 0.2
+OBS_TRANS_VIDEO_DEFAULT_WIDTH = int(os.getenv("OBS_TRANS_VIDEO_DEFAULT_WIDTH"))
+OBS_TRANS_VIDEO_DEFAULT_HEIGHT = int(os.getenv("OBS_TRANS_VIDEO_DEFAULT_HEIGHT"))
 
-TEMP_IMAGE_FOLDER = "./temp"
-BLANK_IMAGE = "./pic/blank.png"
+OBS_TRANS_VIDEO_CAPTURE_RETRY_COUNT = int(
+    os.getenv("OBS_TRANS_VIDEO_CAPTURE_RETRY_COUNT")
+)
+OBS_TRANS_VIDEO_CAPTURE_RETRY_DELAY_SEC = int(
+    os.getenv("OBS_TRANS_VIDEO_CAPTURE_RETRY_DELAY_SEC")
+)
+OBS_TRANS_VIDEO_CAPTURE_INTERVAL_SEC = float(
+    os.getenv("OBS_TRANS_VIDEO_CAPTURE_INTERVAL_SEC")
+)
 
-SHOW_CURRENT_VIDEO = False
+OBS_TRANS_IMAGE_DIFF_THRESHOLD = float(os.getenv("OBS_TRANS_IMAGE_DIFF_THRESHOLD"))
+
+OBS_TRANS_IMAGE_TEMP_FOLDER = os.getenv("OBS_TRANS_IMAGE_TEMP_FOLDER")
+OBS_TRANS_IMAGE_BLANK = os.getenv("OBS_TRANS_IMAGE_BLANK")
+
+OBS_TRANS_VIDEO_SHOW_CAPTURE = (
+    os.getenv("OBS_TRANS_VIDEO_SHOW_CAPTURE").lower() == "true"
+)
 
 logger = build_logger("capture", "capture.log")
 
@@ -36,12 +48,12 @@ def detect_obs_virtual_camera():
 
     for index, device in enumerate(devices):
         print(index, device)
-        if VIDEO_OBS_VIRTUAL_CAMERA_NAME in device:
+        if OBS_TRANS_VIDEO_VIRTUAL_CAMERA_NAME in device:
             print(f"[detect_obs_virtual_camera] choose device index {index}")
             return index
 
     raise Exception(
-        f"Failed to find video device with name '{VIDEO_OBS_VIRTUAL_CAMERA_NAME}'"
+        f"Failed to find video device with name '{OBS_TRANS_VIDEO_VIRTUAL_CAMERA_NAME}'"
     )
 
 
@@ -52,8 +64,8 @@ def init_video_capture():
         logger.error("Failed to turn on the camera.")
         exit()
 
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, TARGET_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, TARGET_HEIGHT)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, OBS_TRANS_VIDEO_DEFAULT_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, OBS_TRANS_VIDEO_DEFAULT_HEIGHT)
 
     actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -64,10 +76,14 @@ def init_video_capture():
 
 def set_trans_image_blank():
     try:
-        shutil.copyfile(BLANK_IMAGE, TRANS_DEST_IMAGE_PATH)
-        logger.info(f"Successully copy {BLANK_IMAGE} to {TRANS_DEST_IMAGE_PATH}")
+        shutil.copyfile(OBS_TRANS_IMAGE_BLANK, OBS_TRANS_IMAGE_DEST_PATH)
+        logger.info(
+            f"Successully copy {OBS_TRANS_IMAGE_BLANK} to {OBS_TRANS_IMAGE_DEST_PATH}"
+        )
     except Exception as e:
-        logger.error(f"Failed when copy {BLANK_IMAGE} to {TRANS_DEST_IMAGE_PATH}: {e}")
+        logger.error(
+            f"Failed when copy {OBS_TRANS_IMAGE_BLANK} to {OBS_TRANS_IMAGE_DEST_PATH}: {e}"
+        )
 
 
 def image_diff(image_bytes1: bytes, image_bytes2: bytes) -> float:
@@ -90,7 +106,7 @@ def trigger_image_trans(frame, ocr_url: str, translate_texts_func: callable):
 
     set_trans_image_blank()
 
-    image_path = os.path.join(TEMP_IMAGE_FOLDER, gen_png_filename())
+    image_path = os.path.join(OBS_TRANS_IMAGE_TEMP_FOLDER, gen_png_filename())
 
     cv2.imwrite(image_path, frame)
     logger.info(f"Saved frame to {image_path}")
@@ -113,8 +129,8 @@ def gen_png_filename() -> str:
 
 
 def keep_capture_and_translate(ocr_url: str, translate_texts_func: callable):
-    if not os.path.exists(TEMP_IMAGE_FOLDER):
-        os.mkdir(TEMP_IMAGE_FOLDER)
+    if not os.path.exists(OBS_TRANS_IMAGE_TEMP_FOLDER):
+        os.mkdir(OBS_TRANS_IMAGE_TEMP_FOLDER)
 
     retry_count = 0
     prev_frame_bytes = None
@@ -125,13 +141,13 @@ def keep_capture_and_translate(ocr_url: str, translate_texts_func: callable):
     while True:
         ret, frame = cap.read()
         if not ret:
-            if retry_count >= RETRY_COUNT:
+            if retry_count >= OBS_TRANS_VIDEO_CAPTURE_RETRY_COUNT:
                 logger.error("Failed to capture even after retry, exit...")
                 break
             else:
                 retry_count += 1
                 logger.warning(f"Failed to capture, {retry_count=}")
-                time.sleep(RETRY_DELAY_SEC)
+                time.sleep(OBS_TRANS_VIDEO_CAPTURE_RETRY_DELAY_SEC)
                 continue
 
         retry_count = 0
@@ -140,23 +156,27 @@ def keep_capture_and_translate(ocr_url: str, translate_texts_func: callable):
         frame_bytes = frame_bytes.tobytes()
 
         if prev_frame_bytes is None:
-            trigger_image_trans(frame, ocr_url=ocr_url, translate_texts_func=translate_texts_func)
+            trigger_image_trans(
+                frame, ocr_url=ocr_url, translate_texts_func=translate_texts_func
+            )
         else:
             diff = image_diff(prev_frame_bytes, frame_bytes)
             logger.debug(f"Image diff: {diff:.2f}")
 
-            if diff > IMAGE_DIFF_THRESHOLD:
-                trigger_image_trans(frame, ocr_url=ocr_url, translate_texts_func=translate_texts_func)
+            if diff > OBS_TRANS_IMAGE_DIFF_THRESHOLD:
+                trigger_image_trans(
+                    frame, ocr_url=ocr_url, translate_texts_func=translate_texts_func
+                )
 
         prev_frame_bytes = frame_bytes
 
-        if SHOW_CURRENT_VIDEO:
+        if OBS_TRANS_VIDEO_SHOW_CAPTURE:
             cv2.imshow("OBS Virtual Camera", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-        time.sleep(IMAGE_TIME_INTERVAL)
+        time.sleep(OBS_TRANS_VIDEO_CAPTURE_INTERVAL_SEC)
 
     cap.release()
     cv2.destroyAllWindows()
@@ -164,19 +184,19 @@ def keep_capture_and_translate(ocr_url: str, translate_texts_func: callable):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ocr_url", type=str, default=OCR_SERVICE_URL)
-    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
-    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
+    parser.add_argument("--ocr_url", type=str, default=OBS_TRANS_OCR_URL)
+    parser.add_argument("--llm_host", type=str, default=OBS_TRANS_LLM_HOST)
+    parser.add_argument("--llm_model", type=str, default=OBS_TRANS_LLM_MODEL)
 
     args = parser.parse_args()
     logger.info(f"{args=}")
 
     def translate_texts(texts: list[str]):
         translate_kwargs = {
-            "ollama_host": args.ollama_host,
-            "ollama_model": args.ollama_model,
+            "llm_host": args.llm_host,
+            "llm_model": args.llm_model,
         }
-        return ollama_translate_texts(texts, **translate_kwargs)
+        return llm_translate_texts(texts, **translate_kwargs)
 
     keep_capture_and_translate(
         ocr_url=args.ocr_url,

@@ -5,3 +5,4 @@ cachetools
 pygrabber
 opencv-python
 moviepy==1.0.3
+python-dotenv

@@ -9,7 +9,7 @@ from threading import Thread
 
 from audio.my_whisperlive_client import MyTranscriptionClient
 from logger import build_logger
-from translator import ollama_translate_text, OLLAMA_HOST, OLLAMA_MODEL
+from translator import llm_translate_text, OBS_TRANS_LLM_HOST, OBS_TRANS_LLM_MODEL
 
 AUDIO_DEVICE_NAME = "AVerMedia ExtremeCap UA"
 
@@ -162,8 +162,8 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("--enable_translate", action="store_true")
-    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
-    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
+    parser.add_argument("--llm_host", type=str, default=OBS_TRANS_LLM_HOST)
+    parser.add_argument("--llm_model", type=str, default=OBS_TRANS_LLM_MODEL)
 
     args = parser.parse_args()
     logger.info(f"{args=}")
@@ -171,10 +171,10 @@ if __name__ == "__main__":
     def translate_text(text: str):
         if args.enable_translate:
             translate_kwargs = {
-                "ollama_host": args.ollama_host,
-                "ollama_model": args.ollama_model,
+                "llm_host": args.llm_host,
+                "llm_model": args.llm_model,
             }
-            return ollama_translate_text(text, **translate_kwargs).strip()
+            return llm_translate_text(text, **translate_kwargs).strip()
         else:
             return f"Skip translation '{text}'"
 

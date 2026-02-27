@@ -1,19 +1,26 @@
 import argparse
 import requests
-import json
 import re
+import os
 
 from typing import List
+from dotenv import load_dotenv
+
 from logger import build_logger
 from googletrans import Translator
 
-logger = build_logger("ocr_trans", "ollama.log")
+load_dotenv()
 
-GOOGLE_TRANSLATE_SOURCE_LANG = "ja"
-GOOGLE_TRANSLATE_TARGET_LANG = "zh-TW"
+OBS_TRANS_LLM_HOST = os.getenv("OBS_TRANS_LLM_HOST")
+OBS_TRANS_LLM_MODEL = os.getenv("OBS_TRANS_LLM_MODEL")
+OBS_TRANS_MODE = os.getenv("OBS_TRANS_MODE").lower()
 
-OLLAMA_MODEL = "gemma2:2b"
-OLLAMA_HOST = "http://localhost:11434"
+OBS_TRANS_LLM_SYSTEM_PROMPT = os.getenv("OBS_TRANS_LLM_SYSTEM_PROMPT")
+OBS_TRANS_GOOGLE_SOURCE_LANG = os.getenv("OBS_TRANS_GOOGLE_SOURCE_LANG")
+OBS_TRANS_GOOGLE_TARGET_LAND = os.getenv("OBS_TRANS_GOOGLE_TARGET_LAND")
+
+
+logger = build_logger("ocr_trans", "translation.log")
 
 
 def file_to_string(filename) -> str:
@@ -21,12 +28,12 @@ def file_to_string(filename) -> str:
         return file.read().strip()
 
 
-ollama_translate_system_prompt = file_to_string("translator_prompt.txt")
+llm_translate_system_prompt = file_to_string(OBS_TRANS_LLM_SYSTEM_PROMPT)
 
 
 def google_translate(text: str, **kwargs):
-    src_lang = kwargs.get("src_lang", GOOGLE_TRANSLATE_SOURCE_LANG)
-    dest_lang = kwargs.get("dest_lang", GOOGLE_TRANSLATE_TARGET_LANG)
+    src_lang = kwargs.get("src_lang", OBS_TRANS_GOOGLE_SOURCE_LANG)
+    dest_lang = kwargs.get("dest_lang", OBS_TRANS_GOOGLE_TARGET_LAND)
 
     translator = Translator()
 
@@ -57,19 +64,19 @@ def google_translate_texts(texts: List[str], **kwargs) -> List[str]:
     return matches
 
 
-def ollama_translate_text(text: str, **kwargs) -> str:
+def llm_translate_text(text: str, **kwargs) -> str:
     if not text:
         return ""
 
-    ollama_host = kwargs.get("ollama_host", OLLAMA_HOST)
-    ollama_model = kwargs.get("ollama_model", OLLAMA_MODEL)
+    llm_host = kwargs.get("llm_host", OBS_TRANS_LLM_HOST)
+    llm_model = kwargs.get("llm_model", OBS_TRANS_LLM_MODEL)
 
     request_body = {
-        "model": ollama_model,
+        "model": llm_model,
         "messages": [
             {
                 "role": "system",
-                "content": ollama_translate_system_prompt,
+                "content": llm_translate_system_prompt,
             },
             {
                 "role": "user",
@@ -82,7 +89,7 @@ def ollama_translate_text(text: str, **kwargs) -> str:
 
     logger.info(f"{request_body=}")
 
-    api_url = f"{ollama_host}/api/chat"
+    api_url = f"{llm_host}/api/chat"
     try:
         response = requests.post(api_url, json=request_body, timeout=30)
         response.raise_for_status()
@@ -93,15 +100,15 @@ def ollama_translate_text(text: str, **kwargs) -> str:
         return translated_text
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to call ollama, error={e}")
+        logger.error(f"Failed to call llm, error={e}")
         return ""
 
 
-def ollama_translate_texts(texts: List[str], **kwargs) -> List[str]:
+def llm_translate_texts(texts: List[str], **kwargs) -> List[str]:
     formatted_texts = "\n".join([f"『{text}』" for text in texts])
     logger.info(f"{formatted_texts=}")
 
-    translation_string = ollama_translate_text(text=formatted_texts, **kwargs)
+    translation_string = llm_translate_text(text=formatted_texts, **kwargs)
     logger.info(f"{translation_string=}")
 
     # split by one new line or multiple new lines
@@ -135,13 +142,13 @@ def strip_quotes(text: str) -> str:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ollama_host", type=str, default=OLLAMA_HOST)
-    parser.add_argument("--ollama_model", type=str, default=OLLAMA_MODEL)
+    parser.add_argument("--llm_host", type=str, default=OBS_TRANS_LLM_HOST)
+    parser.add_argument("--llm_model", type=str, default=OBS_TRANS_LLM_MODEL)
     parser.add_argument(
         "--mode",
         type=str,
-        default="llm",
-        help="Translation mode('llm' or 'google'), default using 'llm'(ollama)",
+        default=OBS_TRANS_MODE,
+        help="Translation mode('llm' or 'google'), default using 'llm'",
     )
 
     args = parser.parse_args()
@@ -165,7 +172,7 @@ if __name__ == "__main__":
     else:
         logger.info("-----Test for LLM translation-----")
         logger.info(f"{texts=}")
-        response = ollama_translate_texts(
-            texts=texts, ollama_host=args.ollama_host, ollama_model=args.ollama_model
+        response = llm_translate_texts(
+            texts=texts, llm_host=args.llm_host, llm_model=args.llm_model
         )
         logger.info(f"{response=}")
