@@ -32,7 +32,7 @@ def run_ocr_service(image_path, ocr_url=OCR_SERVICE_URL):
     try:
         with open(image_path_abs, "rb") as f:
             files = {"file": (os.path.basename(image_path_abs), f, "image/png")}
-            response = requests.post(ocr_url, files=files)
+            response = requests.post(ocr_url, files=files, timeout=5)
             response.raise_for_status()
             return response.json()
     except requests.exceptions.RequestException as e:

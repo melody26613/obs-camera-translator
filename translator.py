@@ -84,7 +84,7 @@ def ollama_translate_text(text: str, **kwargs) -> str:
 
     api_url = f"{ollama_host}/api/chat"
     try:
-        response = requests.post(api_url, json=request_body, timeout=60)
+        response = requests.post(api_url, json=request_body, timeout=30)
         response.raise_for_status()
 
         llm_response = response.json()
