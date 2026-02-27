@@ -91,15 +91,21 @@ def llm_translate_text(text: str, **kwargs) -> str:
 
     logger.info(f"{request_body=}")
 
-    api_url = f"{llm_host}/api/chat"
+    api_url = f"{llm_host}/v1/chat/completions"
+
     try:
         response = requests.post(
-            api_url, json=request_body, timeout=OBS_TRANS_TIMEOUT_SEC_LLM
+            api_url,
+            json=request_body,
+            timeout=OBS_TRANS_TIMEOUT_SEC_LLM,
         )
         response.raise_for_status()
 
         llm_response = response.json()
-        translated_text = llm_response.get("message", {}).get("content", "")
+
+        translated_text = (
+            llm_response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        )
 
         return translated_text
 
