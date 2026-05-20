@@ -109,8 +109,10 @@ audio/translated_audio_text.txt
 
 * run by python script, **with** translate by LLM
 ```bash
-# check your audio device by audio/list_audio_devices.py
-# modify the AUDIO_DEVICE_NAME in audio/audio_trans.py
+# check your audio device
+python -m src.audio.list_audio_devices
+
+# modify the OBS_TRANS_AUDIO_DEVICE_NAME in .env (from .example.env)
 
 # execute under obs-camera-translator/
 # testing audio file
